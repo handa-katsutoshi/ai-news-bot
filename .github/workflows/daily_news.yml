@@ -1,0 +1,25 @@
+name: Weekly AI News Post
+
+on:
+  schedule:
+    # 毎週月曜日の朝9時（日本時間）に実行
+    - cron: '0 0 * * 1'
+  workflow_dispatch: # 手動で動かすボタンも作る
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install feedparser requests google-generativeai
+      - name: Run script
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python weekly_ai_news.py
