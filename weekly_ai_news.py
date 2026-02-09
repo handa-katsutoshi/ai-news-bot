@@ -23,7 +23,7 @@ def fetch_broad_news():
 def summarize_with_gemini(news_text):
     print("🤖 Geminiで要約を開始します...")
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-1.5-flash-latest")
     prompt = f"以下のニュースからクリエイター向けにバズりそうな情報を5つ選び、Discord形式で要約して。ソースURLも付けて。\n\n{news_text}"
     response = model.generate_content(prompt)
     return response.text
