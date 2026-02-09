@@ -12,7 +12,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
 def fetch_broad_news():
-    # 海外の影響度が高いソースを上位に配置
+    # 影響度が高いグローバルソースを優先
     feeds = [
         ("Maginative", "https://www.maginative.com/rss/"),
         ("The Verge", "https://www.theverge.com/ai-artificial-intelligence/rss/index.xml"),
@@ -22,26 +22,22 @@ def fetch_broad_news():
     ]
     
     all_news = []
-    # 影響度の低い「お知らせ・イベント・採用」を弾くキーワード
-    noise_keywords = ["相談会", "キャンペーン", "採用", "セミナー", "イベント", "募集", "クーポン", "無料配布"]
+    # 「相談会・採用・クーポン」など、トレンドではない情報を弾く
+    noise_keywords = ["相談会", "キャンペーン", "採用", "セミナー", "イベント", "募集", "クーポン", "無料配布", "キャリア"]
 
     for name, url in feeds:
         try:
             print(f"📡 取得中: {name}")
             feed = feedparser.parse(url)
-            count = 0
-            for entry in feed.entries:
-                if count >= 15: break # 1サイトあたりの上限を増やして網を広げる
-                
+            for entry in feed.entries[:15]:
                 title = entry.title
                 summary = entry.summary if 'summary' in entry else ""
                 
-                # ノイズが含まれる場合はスキップ
+                # ノイズフィルタリング
                 if any(k in title for k in noise_keywords):
                     continue
                 
                 all_news.append(f"Source: {name}\nTitle: {title}\nLink: {entry.link}\nSummary: {summary}\n")
-                count += 1
         except Exception as e:
             print(f"⚠️ スキップ: {name} ({e})")
     
@@ -51,6 +47,7 @@ def summarize_with_gemini(news_text):
     print("🤖 Geminiエンジンの準備中...")
     genai.configure(api_key=GEMINI_API_KEY)
     
+    # 404エラー回避
     available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
     target_model = "models/gemini-1.5-flash" if "models/gemini-1.5-flash" in available_models else available_models[0]
     
@@ -60,18 +57,21 @@ def summarize_with_gemini(news_text):
     prompt = f"""
 出力は必ず指定した「冒頭の定型文」から開始してください。AIアシスタントとしての挨拶、確認、承諾の言葉は一文字も出力してはいけません。
 
-あなたは世界中のAIトレンドを監視するプロのSNSキュレーターです。提供されたリストから、SNSで数万RTされるような「影響度が高い」「技術的に破壊的な」ニュースを【5つ】厳選してください。
+あなたは世界中のAIトレンドを監視するプロのSNSキュレーターです。提供されたリストから、SNSで数万RTされるような「影響度が高い」「技術的に破壊的な」クリエイティブAIニュースを【5つ】厳選してください。
 
-【選定の鉄則：影響度を最優先】
-1. 海外の一次ソース（Maginative, The Verge等）を優先し、Apple, OpenAI, Google, Metaなどのビッグテックの動向や、Sora, Flux, Luma等の主要モデルのアップデートを最優先してください。
-2. 日本国内のローカルな「イベント」「相談会」「キャンペーン」は、どんなに有益でも「SNSトレンド」ではないため【100%除外】してください。
-3. ニュースリストの中で、技術的に最も新しく、クリエイターのワークフローを根底から変えるものだけを選んでください。
+【選定の鉄則：SNSトレンドと影響度】
+1. 海外の一次ソース（Maginative, The Verge等）を優先し、Apple, OpenAI, Google, Meta, Adobe, Figma等の動向、またはSora, Flux, Luma, Kling, Vidu等の主要モデルのアップデートを最優先してください。
+2. 日本国内のローカルな「イベント」「相談会」「採用」は【100%除外】してください。
 
-【出力形式】
-1. 冒頭は「今週のクリエイティブAI関連ニュースをお届けします！（2026/02/09〜02/16）」とする。
-2. 見出しは「### [ツール名]：[概要]」とする。
-3. 箇条書きは、機能の革新性と「なぜこれが業界で注目されているのか」を客観的かつ鋭い分析トーンで書いてください。
-4. 各ニュースの間には必ず「---」を入れてください。
+【出力形式の絶対ルール】
+1. 冒頭は必ず「今週のクリエイティブAI関連ニュースをお届けします！（2026/02/09〜02/16）」とする。
+2. セクションを以下の2つに分けて分類する。
+   - 🎥 動画・画像生成
+   - 🚀 メジャーモデル・ツール
+3. 各ニュースの見出しは「### [ツール名]：[概要]」と大きく表示する。
+4. 各ニュースの内容は3つの箇条書き。機能の革新性を客観的かつ鋭いトーンで書く。各項目の間には空行を入れること。
+5. 各ニュースの最後に「ソース: [URL]」を1行添える。
+6. ニュースの間には必ず「---」を入れる。
 
 ニュースデータ:
 {news_text}
