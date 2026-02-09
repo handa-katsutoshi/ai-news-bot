@@ -22,12 +22,12 @@ def fetch_broad_news():
     all_news = []
     for url in feeds:
         try:
+            print(f"📡 {url} から情報を取得中...")
             feed = feedparser.parse(url)
-            # 各サイトから上位件数を取得
-            for entry in feed.entries[:10]:
+            for entry in feed.entries[:15]: # 取得数をさらに増やして網を広げる
                 all_news.append(f"Title: {entry.title}\nLink: {entry.link}\nSummary: {entry.summary if 'summary' in entry else ''}\n")
-        except:
-            continue
+        except Exception as e:
+            print(f"⚠️ スキップ: {url} ({e})")
     return "\n".join(all_news)
 
 def summarize_with_gemini(news_text):
@@ -35,59 +35,67 @@ def summarize_with_gemini(news_text):
     model = genai.GenerativeModel("gemini-1.5-flash")
     
     prompt = f"""
-    あなたはSNSでのインプレッション最大化を狙うテックエディターです。
-    提供されたリストから、今日この瞬間にクリエイター界隈で最も「バズる」可能性が高いニュースを【厳選して5つ】抽出してください。
+    あなたは世界中のAIトレンドを監視するプロのキュレーターです。
+    提供されたリストから、SNSで今最も注目を浴びている、あるいはクリエイターが「今すぐ知るべき」AIニュースを【5つ】選んでください。
 
-    【トレンド選別の優先順位（最重要）】
-    1. 「動画生成AI」の衝撃的なアップデート（Vidu Q3, Sora, Runway, Kling等）
-    2. 誰もが知るメジャーツールのAI機能統合（Figma, Canva, Adobe等）
-    3. 従来の制作ワークフローを「破壊」するレベルの技術革新
-    ※ 企業間の訴訟、資金調達、抽象的な法律の議論は「インプレッションが伸びない」ため、徹底的に除外してください。
+    【選定基準：トレンド感度MAX】
+    - 世界的なトレンド（Vidu Q3, Sora, Runway Gen-3, Kling, Luma, Flux等）を最優先。
+    - デザイン業界を激震させるメジャーツール（Figma, Adobe, Canva等）のAI新機能。
+    - インプレッションが見込めない「法律」「会議」「地味な提携」のニュースは1つも入れないでください。
 
-    【出力形式の指定】
+    【出力形式：Discord最適化】
     今週のクリエイティブAI関連ニュースをお届けします！（2026/02/02〜2026/02/09）
 
     ---
     🎥 動画・画像生成
-    ### [ツール名]：[一瞬で内容が理解できるキャッチコピー]
+    ### [ツール名]：[強烈なキャッチコピー]
     
-    ・[革新的なポイント：何が今までと違うのかを具体的に]
+    ・[なぜこれが「今」話題なのか？]
     
-    ・[利便性：制作時間がどれくらい短縮されるか、何が可能になるか]
+    ・[既存ツールと比べて何が圧倒的なのか？]
     
-    ・[将来性：これが今後の業界標準になる理由]
+    ・[クリエイターがどう活用できるか？]
     
     ソース: [URL]
 
     ---
     🚀 メジャーモデル・開発ツール
-    (同様の形式で出力)
+    (同様の形式)
 
-    【トーン＆マナー】
-    - 専門用語を避けつつも、プロのクリエイターが満足する解像度で書いてください。
-    - 各ニュースの後に必ず「---」を入れて、Discord上での視認性を高めてください。
+    ※各ニュースの間には必ず「---」を入れてください。
+    ※もし候補が5つに満たない場合でも、リストの中から最もマシなものを必ず選んでください。
     """
     
     response = model.generate_content(prompt)
     return response.text
 
 def post_to_discord(content):
-    # エラー回避のため、セクション（---）ごとに分割して投稿
+    if not content or len(content) < 50:
+        print("⚠️ 内容が短すぎるため送信を中止しました。")
+        return
+
     sections = content.split("---")
     for section in sections:
         text = section.strip()
         if text:
             # 冒頭の挨拶以外には仕切り線を戻して投稿
             final_msg = text if "今週の" in text else "---\n" + text
-            requests.post(DISCORD_WEBHOOK_URL, json={"content": final_msg}, timeout=15)
+            res = requests.post(DISCORD_WEBHOOK_URL, json={"content": final_msg}, timeout=20)
+            if res.status_code == 204 or res.status_code == 200:
+                print("📤 セクションの送信成功")
+            else:
+                print(f"❌ Discord送信失敗: {res.status_code}")
 
 if __name__ == "__main__":
-    print("📰 トレンドニュースを精査中...")
+    print("📰 トレンド分析を開始します...")
     raw_news = fetch_broad_news()
     if raw_news:
         try:
             report = summarize_with_gemini(raw_news)
+            print("💡 要約完了。Discordへ投稿します。")
             post_to_discord(report)
-            print("✅ 配信成功")
+            print("✅ すべての処理が完了しました。")
         except Exception as e:
-            print(f"❌ Gemini実行エラー: {e}")
+            print(f"❌ Gemini処理中にエラー: {e}")
+    else:
+        print("❌ ニュースの取得自体に失敗しました。")
