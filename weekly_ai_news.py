@@ -21,9 +21,17 @@ def fetch_broad_news():
     return "\n".join(all_news)
 
 def summarize_with_gemini(news_text):
-    print("🤖 Geminiで要約を開始します...")
+    print("🤖 Geminiの準備中...")
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel("gemini-1.5-flash-latest")
+    
+    # 利用可能なモデルから最適なものを自動選択
+    available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    # gemini-1.5-flash または gemini-2.0-flash など、利用可能なものを探す
+    target_model = "models/gemini-1.5-flash" if "models/gemini-1.5-flash" in available_models else available_models[0]
+    
+    print(f"🤖 使用モデル: {target_model}")
+    model = genai.GenerativeModel(target_model)
+    
     prompt = f"以下のニュースからクリエイター向けにバズりそうな情報を5つ選び、Discord形式で要約して。ソースURLも付けて。\n\n{news_text}"
     response = model.generate_content(prompt)
     return response.text
