@@ -8,8 +8,8 @@ import os
 ssl._create_default_https_context = ssl._create_unverified_context
 
 # GitHub環境変数
-GEMINI_API_KEY = os.getenv("AIzaSyADwf8NOOMLxm1vQbilxPFipRObk4nzYzA")
-DISCORD_WEBHOOK_URL = os.getenv("https://discord.com/api/webhooks/1470304030621437986/faoZULE-5rwrAzuulffHaANHvZ9I_fhnyJvdtyYwTU91L0dMYfYgSMz-eSLpZZuT0VfS")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
 def fetch_broad_news():
     feeds = [
